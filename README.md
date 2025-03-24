@@ -1,7 +1,7 @@
 
 # Teto
 
-![Tetolang Logo](TETO.png)
+![Tetolang Logo](teto_logo_texto.png)
 
 Teto is a APL Inspired programming language with a prefix syntax and symbols that fit on your keyboard. The following is an example of Teto's syntax
 
