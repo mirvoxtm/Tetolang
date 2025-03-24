@@ -59,6 +59,7 @@ library
     exposed-modules:  Main
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
+                      deepseq,
                       scientific
                       
     hs-source-dirs:   src

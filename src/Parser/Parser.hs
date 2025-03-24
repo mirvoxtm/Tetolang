@@ -33,12 +33,16 @@ parseArray = do
   _     <- symbol "]"
   return (Arr elems)
 
+{-
+  $&_
+  £¢{}\§~?:
+-}
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["|", "+", "-", "*", "/", "'","\""]
+operatorFunc = choice $ map symbol ["|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["+", "-", "*", "/", "|"]
+  op <- choice $ map symbol ["+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
@@ -70,7 +74,22 @@ parseFunction = do
     "-" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Sub e1 e2) }
     "*" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Mul e1 e2) }
     "/" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Div e1 e2) }
+    "%" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Mod e1 e2) }
+    "!" -> do { e <- parseExpr; return (Fact e) }
+    "¬" -> do { e <- (try parseNegative <|> parseExpr); return (Neg e) }
+    "^" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Exp e1 e2) }
+    "°" -> do { e <- parseExpr; return (Id e) }
+    "§" -> do { e <- parseExpr; return (Reverse e) }
+    "@" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Rotate e1 e2) }
+    "#" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Index e1 e2) }
+    "&" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Match e1 e2) }
     _   -> fail ("Unknown function operator: " ++ op)
+
+parseNegative :: Parser Expression
+parseNegative = do
+  _ <- char '-' 
+  Num n <- parseExpr
+  return (Num (-n))
 
 parseExpr :: Parser Expression
 parseExpr = try parseReduce
@@ -79,7 +98,6 @@ parseExpr = try parseReduce
           <|> try parseArray
           <|> try parseNumber
           <|> parens parseExpr
-  
 
 testParse :: String -> IO ()
 testParse input =
