@@ -68,7 +68,7 @@ eval (Match e1 e2) =
         (Numerical n, Vectorial ys) ->
             case findIndex (\y -> n == toNum y) ys of
                 Just idx -> Numerical ((fromIntegral idx) + 1)
-                Nothing  -> 0.0
+                Nothing  -> Numerical 0.0
         (Vectorial xs, Numerical n) ->
             Vectorial (map (\x -> if toNum x == n then Numerical 1 else Numerical 0) xs)
         (Vectorial xs, Vectorial ys) ->
