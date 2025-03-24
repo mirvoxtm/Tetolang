@@ -25,9 +25,9 @@ You can say that operations with numbers and arrays happen in a more "logical fo
 
 ### Functions in Teto
 Teto has the following functions mapped to special characters:
-`'` -> Minimum (`'|10`)
-`'` -> Maximum (`"|20`)
-`>` -> Reduce (`> + |10`)
-`<` -> Map (`< +2 |10`)
+- `'` -> Minimum (`'|10`)
+- `"` -> Maximum (`"|20`)
+- `>` -> Reduce (`> + |10`)
+- `<` -> Map (`< +2 |10`)
 
 Teto is still a work in progress and it's just a hobbie project made for fun. The quality of the interpreter's code is pretty bad, but if you are interested in helping, feel free to do so!
