@@ -34,7 +34,7 @@ toNum _ = error "Expected a numerical value"
 (*/*) :: Value -> Value -> Value
 (*/*) (Numerical x) (Numerical y) = Numerical (x * y)
 (*/*) (Vectorial x) (Vectorial y)
-  | length x == length y = VeWctorial (zipWith (\a b -> Numerical (toNum a * toNum b)) x y)
+  | length x == length y = Vectorial (zipWith (\a b -> Numerical (toNum a * toNum b)) x y)
   | otherwise = error "Vector lengths must match for element-wise multiplication"
 (*/*) (Numerical x) (Vectorial ys) = Vectorial (map (\v -> Numerical (x * toNum v)) ys)
 (*/*) (Vectorial xs) (Numerical n) = Vectorial (map Vectorial (replicate (round n) xs))
