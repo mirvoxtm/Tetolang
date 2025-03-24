@@ -31,8 +31,16 @@ eval (Range e) =
         Numerical n -> Vectorial (map (Numerical . fromIntegral) [1 .. floor n])
         Vectorial xs -> Numerical (fromIntegral (length xs))
         _ -> error "Range function expects a numerical expression"
-eval (Max e)     = applyUnary (\v -> Numerical (maximum (extractNums v))) (eval e)
-eval (Min e)     = applyUnary (\v -> Numerical (minimum (extractNums v))) (eval e)
+eval (Max e) = case eval e of
+    Vectorial xs -> Numerical (maximum (map toNum xs))
+    Numerical n  -> Numerical n
+    _            -> error "Max expects a vector or number"
+
+eval (Min e) = case eval e of
+    Vectorial xs -> Numerical (minimum (map toNum xs))
+    Numerical n  -> Numerical n
+    _            -> error "Min expects a vector or number"
+
 eval (Reduce fExpr arrExpr) = reduceFunc fExpr arrExpr
 eval (Map fExpr arrExpr)    = mapFunc fExpr arrExpr
 eval (Reverse e) =
@@ -115,9 +123,9 @@ eqValue (Vectorial xs) (Vectorial ys)
 eqValue _ _                             = False
 
 extractNums :: Value -> [Double]
+extractNums (Numerical n)  = [n]  -- Wrap single numbers in a list
 extractNums (Vectorial xs) = concatMap extractNums xs
-extractNums (Numerical n)  = [n]
-extractNums _ = error "Expected a numerical vector"
+extractNums _              = error "Expected a numerical vector"
 
 reduceFunc :: Expression -> Expression -> Value
 reduceFunc fExpr arrExpr =
