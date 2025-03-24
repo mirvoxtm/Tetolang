@@ -56,7 +56,7 @@ common warnings
 
 library
     import:           warnings
-    exposed-modules:  Main
+    exposed-modules:  Teto
     build-depends:    base ^>=4.17.2.1,
                       megaparsec,
                       deepseq,
@@ -82,7 +82,7 @@ test-suite Tetolang-test
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          Main.hs
+    main-is:          Teto.hs
 
     -- Test dependencies.
     build-depends:
