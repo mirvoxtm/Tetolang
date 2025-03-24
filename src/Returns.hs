@@ -2,9 +2,8 @@ module Returns where
 
 data Value = Numerical Double
            | Vectorial [Value]
-           | Function { arity :: Int, 
-                        fun :: [Double] -> Double
-                      }
+           | Function { arity :: Int, fun :: [Value] -> Value }
+
 
 instance Show Value where
     show (Numerical n) = show n

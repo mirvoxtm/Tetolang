@@ -34,12 +34,16 @@ parseArray = do
   return (Arr elems)
 
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["|", "+", "-", "*", "/", "^"]
+operatorFunc = choice $ map symbol ["|", "+", "-", "*", "/", "'","\""]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
   op <- choice $ map symbol ["+", "-", "*", "/", "|"]
-  return (Fun op)
+  numOpt <- optional (lexeme L.scientific)
+  case numOpt of
+    Nothing -> return (Fun op)
+    Just n  -> return (Fun (op ++ show (toRealFloat n)))
+
 
 parseReduce :: Parser Expression
 parseReduce = do
@@ -48,12 +52,20 @@ parseReduce = do
   a <- parseExpr
   return (Reduce f a)
 
+parseMap :: Parser Expression
+parseMap = do
+  _ <- symbol "<"
+  f <- parseBuiltinFunction
+  a <- parseExpr
+  return (Map f a)
+
 parseFunction :: Parser Expression
 parseFunction = do
   op <- operatorFunc
   case op of
     "|" -> do { e <- parseExpr; return (Range e) }
-    "^" -> do { e <- parseExpr; return (Max e) }
+    "\"" -> do { e <- parseExpr; return (Max e) }
+    "'" -> do { e <- parseExpr; return (Min e) }
     "+" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Sum e1 e2) }
     "-" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Sub e1 e2) }
     "*" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Mul e1 e2) }
@@ -62,10 +74,12 @@ parseFunction = do
 
 parseExpr :: Parser Expression
 parseExpr = try parseReduce
-         <|> try parseFunction
-         <|> try parseArray
-         <|> try parseNumber
-         <|> parens parseExpr
+          <|> try parseMap
+          <|> try parseFunction
+          <|> try parseArray
+          <|> try parseNumber
+          <|> parens parseExpr
+  
 
 testParse :: String -> IO ()
 testParse input =
