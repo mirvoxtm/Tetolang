@@ -1,4 +1,4 @@
-module Teto where
+module Teto (runTeto, runImmediate, interactiveLoop) where
 
 import Prelude
 import System.Environment (getArgs)
@@ -13,10 +13,10 @@ import Eval (eval)
 instance NFData Value where
     rnf (Numerical n)   = rnf n
     rnf (Vectorial xs)  = rnf xs
-    rnf (Function a f)  = rnf a `seq` () 
+    rnf (Function a f)  = rnf a `seq` ()
 
-main :: IO ()
-main = do
+runTeto :: IO ()
+runTeto = do
     args <- getArgs
     if not (null args) && head args == "-p"
        then runImmediate (unwords (tail args))
