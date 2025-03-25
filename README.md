@@ -5,13 +5,14 @@
 <br>
 
 
-![Tetolang Logo](teto_logo_texto.png)
+<img src="teto_logo_texto.png" width="20%">
 
 Teto is a APL Inspired programming language with a prefix syntax and symbols that fit on your keyboard. The following is an example of Teto's syntax
 
-You can download the Teto Interpreter on the release tab.
-
+[Click here to try Teto online ](https://teto.mirvox.xyz/).
   
+
+
 
 ## Understanding Teto
 
