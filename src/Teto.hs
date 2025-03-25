@@ -1,5 +1,4 @@
-module Teto (runTeto, runImmediate, interactiveLoop) where
-
+module Teto (runTeto, runImmediate, interactiveLoop, parseToString) where
 import Prelude
 import Data.List
 import System.Environment (getArgs)
