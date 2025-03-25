@@ -5,7 +5,7 @@ import Parser.Ast
 import Parser.Parser
 import Returns
 import Data.Fixed (mod')
-import Data.List (findIndex)
+import Data.List
 import Data.Maybe (fromMaybe)
 
 eval :: Expression -> Value
@@ -30,6 +30,14 @@ eval (Mul e1 e2) = (eval e1) */* (eval e2)
 eval (Div e1 e2) = (eval e1) /|\ (eval e2)
 
 eval (Exp e1 e2) = (eval e1) ^/^ (eval e2)
+
+eval (Nub e) = case eval e of
+    Vectorial xs -> Vectorial (nub xs)
+    _ -> error "Nub expects a vector"
+
+eval (Len e) = case eval e of
+    Vectorial xs -> Numerical (fromIntegral (length xs))
+    _ -> error "Len expects a vector"
 
 eval (Mod e1 e2) =
     case (eval e1, eval e2) of

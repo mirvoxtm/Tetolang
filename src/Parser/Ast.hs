@@ -28,5 +28,7 @@ module Parser.Ast where
         | Index Expression Expression
         | Match Expression Expression
         | Mod Expression Expression
+        | Nub Expression
+        | Len Expression
 
         deriving (Show, Eq)

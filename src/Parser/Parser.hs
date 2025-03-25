@@ -38,11 +38,11 @@ parseArray = do
   £¢\§?
 -}
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
+operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&", "$", "£"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
+  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§", "$", "£"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
@@ -126,6 +126,8 @@ parseFunction = do
     "@" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Rotate e1 e2) }
     "#" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Index e1 e2) }
     "&" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Match e1 e2) }
+    "$" -> do { e <- parseExpr; return (Nub e) }
+    "£" -> do { e <- parseExpr; return (Len e) }
     _   -> fail ("Unknown function operator: " ++ op)
 
 parseNegative :: Parser Expression
