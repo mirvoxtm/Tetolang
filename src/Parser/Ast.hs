@@ -1,6 +1,10 @@
 module Parser.Ast where
     data Expression
         = Num Double
+        | Boolean Bool
+        | If Expression Expression Expression
+        | Eq Expression Expression
+        | Neq Expression Expression
         | Sum Expression Expression
         | Sub Expression Expression
         | Mul Expression Expression

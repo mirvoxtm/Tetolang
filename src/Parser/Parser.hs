@@ -35,19 +35,35 @@ parseArray = do
 
 {-
   $&_
-  £¢{}\§~?:
+  £¢\§~?:
 -}
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
+operatorFunc = choice $ map symbol ["=", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
+  op <- choice $ map symbol ["=", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
     Just n  -> return (Fun (op ++ show (toRealFloat n)))
 
+parseIfThenElse :: Parser Expression
+parseIfThenElse = do
+  _ <- string "{"
+  cond <- parseExpr
+  _ <- string "\\"
+  sc
+  e1 <- parseExpr
+  _ <- string "}"
+  sc
+  e2 <- parseExpr
+  return (If cond e1 e2)
+
+parseBool :: Parser Expression
+parseBool = do
+  b <- lexeme (string "O" <|> string "X")
+  if b == "O" then return (Boolean True) else return (Boolean False)
 
 parseReduce :: Parser Expression
 parseReduce = do
@@ -67,6 +83,7 @@ parseFunction :: Parser Expression
 parseFunction = do
   op <- operatorFunc
   case op of
+    "=" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Eq e1 e2) }
     "|" -> do { e <- parseExpr; return (Range e) }
     "\"" -> do { e <- parseExpr; return (Max e) }
     "'" -> do { e <- parseExpr; return (Min e) }
@@ -94,6 +111,8 @@ parseNegative = do
 parseExpr :: Parser Expression
 parseExpr = try parseReduce
           <|> try parseMap
+          <|> try parseIfThenElse
+          <|> try parseBool
           <|> try parseFunction
           <|> try parseArray
           <|> try parseNumber

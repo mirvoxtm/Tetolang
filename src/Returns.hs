@@ -2,11 +2,19 @@ module Returns where
 
 data Value = Numerical Double
            | Vectorial [Value]
+           | Booleanical Bool
            | Function { arity :: Int, fun :: [Value] -> Value }
 
+instance Eq Value where
+    Numerical x == Numerical y = x == y
+    Vectorial xs == Vectorial ys = xs == ys
+    Booleanical x == Booleanical y = x == y
+    Function _ _ == Function _ _ = False
+    _ == _ = False
 
 instance Show Value where
     show (Numerical n) = show n
+    show (Booleanical b) = if b then "O" else "X"
     show (Vectorial xs) = "[" ++ inner xs ++ "]"
         where
           inner [] = ""

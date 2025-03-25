@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use lambda-case" #-}
 module Eval where
 import Parser.Ast
 import Parser.Parser
@@ -8,29 +10,49 @@ import Data.Maybe (fromMaybe)
 
 eval :: Expression -> Value
 eval (Num n) = Numerical n
+
 eval (Id e) = eval e
+
+eval (Boolean b) = Booleanical b
+
+eval (Eq x y) = if eqValue (eval x) (eval y) then Booleanical True else Booleanical False
+
+eval (If cond e1 e2) = if eval cond == Booleanical True then eval e1 else eval e2
+
 eval (Sum e1 e2) = (eval e1) +++ (eval e2)
+
 eval (Sub e1 e2) = (eval e1) -/- (eval e2)
+
 eval (Mul e1 e2) = (eval e1) */* (eval e2)
+
 eval (Div e1 e2) = (eval e1) /|\ (eval e2)
+
 eval (Exp e1 e2) = (eval e1) ^/^ (eval e2)
+
 eval (Mod e1 e2) =
     case (eval e1, eval e2) of
         (Numerical x, Numerical y) ->
             if y == 0 then error "Modulo by zero"
             else Numerical (mod' x y)
         _ -> error "Modulo expects two numbers"
+
 eval (Fact e)    = applyUnary (\v -> case v of
     Numerical n  -> Numerical (product [1..n])
     Vectorial xs -> Vectorial (map (\(Numerical n) -> Numerical (product [1..n])) xs)
     ) (eval e)
+
 eval (Arr xs)    = Vectorial (map eval xs)
-eval (Neg e) = applyUnary negValue (eval e)
+
+eval (Neg e) = case e of
+    Boolean b -> Booleanical (not b)
+    _ -> applyUnary negValue (eval e)
+
 eval (Range e) =
     case eval e of
         Numerical n -> Vectorial (map (Numerical . fromIntegral) [1 .. floor n])
         Vectorial xs -> Numerical (fromIntegral (length xs))
         _ -> error "Range function expects a numerical expression"
+
 eval (Max e) = case eval e of
     Vectorial xs -> Numerical (maximum (map toNum xs))
     Numerical n  -> Numerical n
@@ -42,18 +64,22 @@ eval (Min e) = case eval e of
     _            -> error "Min expects a vector or number"
 
 eval (Reduce fExpr arrExpr) = reduceFunc fExpr arrExpr
+
 eval (Map fExpr arrExpr)    = mapFunc fExpr arrExpr
+
 eval (Reverse e) =
     case eval e of
         Vectorial xs -> Vectorial (reverse xs)
         _ -> error "Reverse function expects a vector"
+
 eval (Rotate e1 e2) =
     case (eval e1, eval e2) of
         (Numerical n, Vectorial xs) ->
             let len = length xs
-                shift = round n `mod` len  -- Avoid going out of bounds
+                shift = round n `mod` len
             in Vectorial (drop shift xs ++ take shift xs)
         _ -> error "Rotate expects a number and a vector"
+
 eval (Index e1 e2) =
     case (eval e1, eval e2) of
         (Numerical n, Vectorial xs) ->
@@ -61,6 +87,7 @@ eval (Index e1 e2) =
                 then error "Index out of bounds"
                 else xs !! (round n - 1)
         _ -> error "Index expects a number and a vector"
+        
 eval (Match e1 e2) =
     case (eval e1, eval e2) of
         (Numerical v1, Numerical v2) ->
@@ -157,5 +184,6 @@ rangeFunc :: Double -> Value
 rangeFunc x = Vectorial (map (Numerical . fromIntegral) [1 .. floor x])
 
 applyUnary :: (Value -> Value) -> Value -> Value
+applyUnary f (Booleanical b) = f (Booleanical b)
 applyUnary f (Vectorial xs) = Vectorial (map f xs)
 applyUnary f v              = f v

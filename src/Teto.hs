@@ -1,6 +1,7 @@
 module Teto (runTeto, runImmediate, interactiveLoop) where
 
 import Prelude
+import Data.List
 import System.Environment (getArgs)
 import Control.Monad (forever)
 import Control.Exception (try, SomeException, evaluate)
@@ -12,15 +13,32 @@ import Eval (eval)
 
 instance NFData Value where
     rnf (Numerical n)   = rnf n
+    rnf (Booleanical b) = rnf b
     rnf (Vectorial xs)  = rnf xs
     rnf (Function a f)  = rnf a `seq` ()
 
 runTeto :: IO ()
 runTeto = do
     args <- getArgs
-    if not (null args) && head args == "-p"
-       then runImmediate (unwords (tail args))
-       else interactiveLoop
+    if not (null args) && head args == "-f"
+        then parseFile (unwords (tail args))
+        else
+            if not (null args) && head args == "-p"
+            then runImmediate (unwords (tail args))
+            else interactiveLoop
+
+parseFile :: String -> IO ()
+parseFile path
+    | ".teto" `isSuffixOf` path = do
+        input <- readFile path
+        putStrLn (parseToString input)
+    | otherwise = putStrLn "Invalid file extension"
+
+parseToString :: String -> String
+parseToString input =
+    case parse (sc *> parseExpr <* eof) "" input of
+        Left err   -> errorBundlePretty err
+        Right expr -> show (eval expr)
 
 runImmediate :: String -> IO ()
 runImmediate input =
