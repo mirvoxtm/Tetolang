@@ -17,6 +17,8 @@ eval (Boolean b) = Booleanical b
 
 eval (Eq x y) = if eqValue (eval x) (eval y) then Booleanical True else Booleanical False
 
+eval (Neq x y) = if eqValue (eval x) (eval y) then Booleanical False else Booleanical True
+
 eval (If cond e1 e2) = if eval cond == Booleanical True then eval e1 else eval e2
 
 eval (Sum e1 e2) = (eval e1) +++ (eval e2)
@@ -67,6 +69,17 @@ eval (Reduce fExpr arrExpr) = reduceFunc fExpr arrExpr
 
 eval (Map fExpr arrExpr)    = mapFunc fExpr arrExpr
 
+eval (PartialEq e) =
+    Function 1 (\[x] -> if eqValue x (eval e) then Booleanical True else Booleanical False)
+
+eval (PartialNeq e) =
+    Function 1 (\[x] -> if eqValue x (eval e) then Booleanical False else Booleanical True)
+
+eval (Filter fExpr arrExpr) =
+    case (eval fExpr, eval arrExpr) of
+        (Function 1 f, Vectorial xs) -> Vectorial (filter (toBool . f . return) xs)
+        _ -> error "Filter expects a function and a vector"
+
 eval (Reverse e) =
     case eval e of
         Vectorial xs -> Vectorial (reverse xs)
@@ -91,24 +104,32 @@ eval (Index e1 e2) =
 eval (Match e1 e2) =
     case (eval e1, eval e2) of
         (Numerical v1, Numerical v2) ->
-            if v1 == v2 then Numerical 1 else Numerical 0
+            if v1 == v2 then Booleanical True else Booleanical False
         (Numerical n, Vectorial ys) ->
             case findIndex (\y -> n == toNum y) ys of
                 Just idx -> Numerical ((fromIntegral idx) + 1)
                 Nothing  -> Numerical 0.0
         (Vectorial xs, Numerical n) ->
-            Vectorial (map (\x -> if toNum x == n then Numerical 1 else Numerical 0) xs)
+            Vectorial (map (\x -> if toNum x == n then Booleanical True else Booleanical False) xs)
         (Vectorial xs, Vectorial ys) ->
             if length xs /= length ys
-                then error "Match expects vectors of the same length"
-                else Vectorial (zipWith (\x y -> if eqValue x y then Numerical 1 else Numerical 0) xs ys)
-        _ -> error "Invalid types for Match"
+                then error "Match expects vectors of the same length."
+                else Vectorial (zipWith (\x y -> if eqValue x y then Booleanical True else Booleanical False) xs ys)
+        (Booleanical b1, Booleanical b2) ->
+            if b1 == b2 then Booleanical True else Booleanical False
+        (Booleanical b, Vectorial ys) ->
+            Vectorial (map (\y -> if b == toBool y then Booleanical True else Booleanical False) ys)
+        (Vectorial xs, Booleanical b) ->
+            Vectorial (map (\x -> if toBool x == b then Booleanical True else Booleanical False) xs)
+        _ -> error "Invalid types for Match."
 
 eval (Fun op) =
     fromMaybe (parseCustomFun op) (lookup op funTable)
   where
     funTable =
-      [ ("+", Function 2 (\[x, y] -> Numerical (toNum x + toNum y)))
+      [ ("=", Function 2 (\[x, y] -> if eqValue x y then Booleanical True else Booleanical False))
+      , ("~", Function 2 (\[x, y] -> if eqValue x y then Booleanical False else Booleanical True))
+      , ("+", Function 2 (\[x, y] -> Numerical (toNum x + toNum y)))
       , ("-", Function 2 (\[x, y] -> Numerical (toNum x - toNum y)))
       , ("*", Function 2 (\[x, y] -> Numerical (toNum x * toNum y)))
       , ("/", Function 2 (\[x, y] -> Numerical (safeDiv (toNum x) (toNum y))))
@@ -120,27 +141,32 @@ eval (Fun op) =
       , ("!", Function 1 (\[x] -> applyUnary (\v -> case v of
             Numerical n  -> Numerical (product [1..n])
             Vectorial xs -> Vectorial (map (\(Numerical n) -> Numerical (product [1..n])) xs)
+            _            -> error "Factorial expects a numerical or vectorial value."
         ) x))
       , ("¬", Function 1 (\[x] -> applyUnary negValue x))
       , ("§", Function 1 (\[x] -> applyUnary (\v -> case v of
               Vectorial xs -> Vectorial (reverse xs)
-              _ -> error "Reverse function expects a vector"
+              _            -> error "Reverse function expects a vectorial value."
         ) x))
       ]
 
+toBool :: Value -> Bool
+toBool (Booleanical b) = b
+toBool _               = error "Expected a vector of boolean values."
 
 parseCustomFun :: String -> Value
 parseCustomFun op
-    | head op `elem` "+-*/" && length op > 1 =
+    | head op `elem` "+-*/=~" && length op > 1 =
         let n = read (tail op) :: Double
-        in Function 1 (\[x] -> Numerical (applyCustomOp (head op) (toNum x) n))
+        in case head op of
+              '+' -> Function 1 (\[x] -> Numerical (toNum x + n))
+              '-' -> Function 1 (\[x] -> Numerical (toNum x - n))
+              '*' -> Function 1 (\[x] -> Numerical (toNum x * n))
+              '/' -> Function 1 (\[x] -> Numerical (toNum x / n))
+              '=' -> Function 1 (\[x] -> if toNum x == n then Booleanical True else Booleanical False)
+              '~' -> Function 1 (\[x] -> if toNum x == n then Booleanical False else Booleanical True)
+              _   -> error ("Invalid operator: " ++ op)
     | otherwise = error ("Unknown function operator: " ++ op)
-  where
-    applyCustomOp '+' = (+)
-    applyCustomOp '-' = (-)
-    applyCustomOp '*' = (*)
-    applyCustomOp '/' = (/)
-    applyCustomOp _   = error "Invalid operator"
 
 eqValue :: Value -> Value -> Bool
 eqValue (Numerical a) (Numerical b)     = a == b
@@ -163,17 +189,19 @@ reduceFunc fExpr arrExpr =
         _ -> error "Reduce expects a binary function"
 
 mapFunc :: Expression -> Expression -> Value
-mapFunc fExpr arrExpr =
-    case eval fExpr of
-        Function 1 f -> case eval arrExpr of
-            Vectorial xs -> f [Vectorial xs]
-            _ -> error "Map expects a vector as its second argument"
-        _ -> error "Map expects a function as its first argument"
+mapFunc fExpr arrExpr = case eval fExpr of
+    Function 1 f -> case eval arrExpr of
+        Vectorial xs -> Vectorial (map (f . return) xs)
+        _ -> error "Map expects a vector as its second argument"
+    Function 2 f -> case eval arrExpr of
+        Vectorial xs -> Vectorial (map (\x -> f [x]) xs)
+        _ -> error "Map expects a vector as its second argument"
+    _ -> error "Map expects a function as its first argument"
 
 negValue :: Value -> Value
 negValue (Numerical n) = Numerical (-n)
 negValue (Vectorial xs) = Vectorial (map negValue xs)
-negValue _ = error "Negation expects a numerical value"
+negValue (Booleanical b) = Booleanical (not b)
 
 safeDiv :: Double -> Double -> Double
 safeDiv x y

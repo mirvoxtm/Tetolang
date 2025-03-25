@@ -4,7 +4,10 @@ module Parser.Ast where
         | Boolean Bool
         | If Expression Expression Expression
         | Eq Expression Expression
+        | PartialEq Expression
+        | PartialNeq Expression
         | Neq Expression Expression
+        | Filter Expression Expression
         | Sum Expression Expression
         | Sub Expression Expression
         | Mul Expression Expression

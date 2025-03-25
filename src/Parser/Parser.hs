@@ -35,14 +35,14 @@ parseArray = do
 
 {-
   $&_
-  £¢\§~?:
+  £¢\§?
 -}
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["=", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
+operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["=", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
+  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
@@ -79,11 +79,37 @@ parseMap = do
   a <- parseExpr
   return (Map f a)
 
+parsePartialEquality :: Parser Expression
+parsePartialEquality = do
+  _ <- symbol "="
+  e <- parseExpr
+  lookAhead (symbol ")")
+  return (PartialEq e)
+
+parsePartialInequality :: Parser Expression
+parsePartialInequality = do
+  _ <- symbol "~"
+  e <- parseExpr
+  lookAhead (symbol ")")
+  return (PartialNeq e)
+
+parsePredicate :: Parser Expression
+parsePredicate = try parsePartialEquality <|> try parsePartialInequality <|> parseExpr
+
+parseFilter :: Parser Expression
+parseFilter = do
+  _       <- symbol ":"
+  fExpr   <- between (symbol "(") (symbol ")") parsePredicate
+  sc
+  arrExpr <- parseExpr
+  return (Filter fExpr arrExpr)
+
 parseFunction :: Parser Expression
 parseFunction = do
   op <- operatorFunc
   case op of
     "=" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Eq e1 e2) }
+    "~" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Neq e1 e2) }
     "|" -> do { e <- parseExpr; return (Range e) }
     "\"" -> do { e <- parseExpr; return (Max e) }
     "'" -> do { e <- parseExpr; return (Min e) }
@@ -111,6 +137,7 @@ parseNegative = do
 parseExpr :: Parser Expression
 parseExpr = try parseReduce
           <|> try parseMap
+          <|> try parseFilter
           <|> try parseIfThenElse
           <|> try parseBool
           <|> try parseFunction
