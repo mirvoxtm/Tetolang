@@ -14,6 +14,7 @@ instance NFData Value where
     rnf (Numerical n)   = rnf n
     rnf (Booleanical b) = rnf b
     rnf (Vectorial xs)  = rnf xs
+    rnf (Characterial c) = rnf c
     rnf (Function a f)  = rnf a `seq` ()
 
 runTeto :: IO ()

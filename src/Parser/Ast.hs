@@ -2,6 +2,8 @@ module Parser.Ast where
     data Expression
         = Num Double
         | Boolean Bool
+        | Char Char
+        | Arr [Expression]
         | If Expression Expression Expression
         | Eq Expression Expression
         | PartialEq Expression
@@ -21,7 +23,6 @@ module Parser.Ast where
         | Id Expression
         | Reduce Expression Expression
         | Map Expression Expression
-        | Arr [Expression]
         | Fun String
         | Reverse Expression
         | Rotate Expression Expression

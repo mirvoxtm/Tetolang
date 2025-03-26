@@ -2,16 +2,20 @@
 {-# HLINT ignore "Use lambda-case" #-}
 module Eval where
 import Parser.Ast
+import Text.Read (readMaybe)
 import Parser.Parser
 import Returns
 import Data.Fixed (mod')
 import Data.List
+import Data.Char
 import Data.Maybe (fromMaybe)
 
 eval :: Expression -> Value
 eval (Num n) = Numerical n
 
 eval (Id e) = eval e
+
+eval (Char c) = Characterial c
 
 eval (Boolean b) = Booleanical b
 
@@ -99,11 +103,19 @@ eval (Rotate e1 e2) =
             let len = length xs
                 shift = round n `mod` len
             in Vectorial (drop shift xs ++ take shift xs)
+        (Vectorial xs, Numerical n) ->
+            let len = length xs
+                shift = round n `mod` len
+            in Vectorial (drop shift xs ++ take shift xs)
         _ -> error "Rotate expects a number and a vector"
 
 eval (Index e1 e2) =
     case (eval e1, eval e2) of
         (Numerical n, Vectorial xs) ->
+            if round n <= 0 || round n > length xs
+                then error "Index out of bounds"
+                else xs !! (round n - 1)
+        (Vectorial xs, Numerical n) ->
             if round n <= 0 || round n > length xs
                 then error "Index out of bounds"
                 else xs !! (round n - 1)
@@ -119,16 +131,22 @@ eval (Match e1 e2) =
                 Nothing  -> Numerical 0.0
         (Vectorial xs, Numerical n) ->
             Vectorial (map (\x -> if toNum x == n then Booleanical True else Booleanical False) xs)
-        (Vectorial xs, Vectorial ys) ->
-            if length xs /= length ys
-                then error "Match expects vectors of the same length."
-                else Vectorial (zipWith (\x y -> if eqValue x y then Booleanical True else Booleanical False) xs ys)
         (Booleanical b1, Booleanical b2) ->
             if b1 == b2 then Booleanical True else Booleanical False
         (Booleanical b, Vectorial ys) ->
             Vectorial (map (\y -> if b == toBool y then Booleanical True else Booleanical False) ys)
         (Vectorial xs, Booleanical b) ->
             Vectorial (map (\x -> if toBool x == b then Booleanical True else Booleanical False) xs)
+        (Characterial c1, Characterial c2) ->
+            if c1 == c2 then Booleanical True else Booleanical False
+        (Characterial c, Vectorial ys) ->
+            Vectorial (map (\y -> if c == toChar y then Booleanical True else Booleanical False) ys)
+        (Vectorial xs, Characterial c) ->
+            Vectorial (map (\x -> if toChar x == c then Booleanical True else Booleanical False) xs)
+        (Vectorial xs, Vectorial ys) ->
+            if length xs /= length ys
+                then error "Match expects vectors of the same length."
+                else Vectorial (zipWith (\x y -> if eqValue x y then Booleanical True else Booleanical False) xs ys)
         _ -> error "Invalid types for Match."
 
 eval (Fun op) =
@@ -162,25 +180,52 @@ toBool :: Value -> Bool
 toBool (Booleanical b) = b
 toBool _               = error "Expected a vector of boolean values."
 
+toChar :: Value -> Char
+toChar (Characterial c) = c
+toChar _                = error "Expected a character value."
+
 parseCustomFun :: String -> Value
 parseCustomFun op
     | head op `elem` "+-*/=~" && length op > 1 =
-        let n = read (tail op) :: Double
+        let rest = tail op
         in case head op of
-              '+' -> Function 1 (\[x] -> Numerical (toNum x + n))
-              '-' -> Function 1 (\[x] -> Numerical (toNum x - n))
-              '*' -> Function 1 (\[x] -> Numerical (toNum x * n))
-              '/' -> Function 1 (\[x] -> Numerical (toNum x / n))
-              '=' -> Function 1 (\[x] -> if toNum x == n then Booleanical True else Booleanical False)
-              '~' -> Function 1 (\[x] -> if toNum x == n then Booleanical False else Booleanical True)
+              '+' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> Numerical (toNum x + n))
+                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+              '-' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> Numerical (toNum x - n))
+                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+              '*' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> Numerical (toNum x * n))
+                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+              '/' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> Numerical (toNum x / n))
+                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+              '=' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> if toNum x == n then Booleanical True else Booleanical False)
+                         Nothing -> Function 1 (\[x] ->
+                                    if eqValue x (stringVal rest)
+                                      then Booleanical True
+                                      else Booleanical False)
+              '~' -> case readMaybe rest :: Maybe Double of
+                         Just n  -> Function 1 (\[x] -> if toNum x == n then Booleanical False else Booleanical True)
+                         Nothing -> Function 1 (\[x] ->
+                                    if eqValue x (stringVal rest)
+                                      then Booleanical False
+                                      else Booleanical True)
               _   -> error ("Invalid operator: " ++ op)
     | otherwise = error ("Unknown function operator: " ++ op)
+
+stringVal :: String -> Value
+stringVal s = Vectorial (map Characterial s)
 
 eqValue :: Value -> Value -> Bool
 eqValue (Numerical a) (Numerical b)     = a == b
 eqValue (Vectorial xs) (Vectorial ys) 
   | length xs == length ys              = and (zipWith eqValue xs ys)
   | otherwise                           = False
+eqValue (Booleanical a) (Booleanical b) = a == b
+eqValue (Characterial a) (Characterial b) = a == b
 eqValue _ _                             = False
 
 extractNums :: Value -> [Double]

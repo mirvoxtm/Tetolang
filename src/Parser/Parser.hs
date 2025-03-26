@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 module Parser.Parser where
 
 import Data.Void
@@ -33,16 +35,24 @@ parseArray = do
   _     <- symbol "]"
   return (Arr elems)
 
+parseString :: Parser Expression
+parseString = do
+  _   <- symbol "\""
+  str <- manyTill L.charLiteral (symbol "\"")
+  case str of
+    [c] -> return (Char c)
+    cs  -> return (Arr (map Char cs))
+
 {-
-  $&_
-  £¢\§?
+  ?'
 -}
+
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "'","\"","¬", "°", "§", "@", "#", "%", "&", "$", "£"]
+operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "_","¢","¬", "°", "§", "@", "#", "%", "&", "$", "£"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "'","\"", "¬", "°", "§", "$", "£"]
+  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "_","¢", "¬", "°", "§", "$", "£"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
@@ -137,7 +147,8 @@ parseNegative = do
   return (Num (-n))
 
 parseExpr :: Parser Expression
-parseExpr = try parseReduce
+parseExpr = parseString
+          <|> try parseReduce
           <|> try parseMap
           <|> try parseFilter
           <|> try parseIfThenElse
