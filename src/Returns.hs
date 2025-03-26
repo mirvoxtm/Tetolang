@@ -33,7 +33,7 @@ instance Show Value where
 
 toNum :: Value -> Double
 toNum (Numerical n) = n
-toNum _ = error "Expected a numerical value"
+toNum _ = errorWithoutStackTrace "Expected a numerical value"
 
 removeSubstring :: String -> String -> String
 removeSubstring needle haystack
@@ -52,16 +52,30 @@ removeSubstring needle haystack
 (+++) (Numerical x) (Vectorial y) = Vectorial (map (\v -> Numerical (x + toNum v)) y)
 (+++) (Vectorial x) (Numerical y) = Vectorial (x ++ [Numerical y])
 (+++) (Numerical x) (Characterial y) = Vectorial ([Characterial y] ++ [Characterial y])
-(+++) _ _ = error "Invalid types for concatenation"
+(+++) (Characterial x) (Numerical y) = Vectorial ([Characterial x] ++ [Characterial x])
+(+++) (Characterial x) (Characterial y) = Vectorial [Characterial x, Characterial y]
+(+++) (Vectorial x) (Characterial y) = Vectorial (x ++ [Characterial y])
+(+++) (Characterial x) (Vectorial y) = Vectorial (y ++ [Characterial x])
+(+++) _ _ = errorWithoutStackTrace "Invalid types for concatenation"
 
 (-/-) :: Value -> Value -> Value
 (-/-) (Numerical x) (Numerical y) = Numerical (x - y)
 (-/-) (Vectorial x) (Vectorial y)
-  | length x == length y = Vectorial (zipWith (\a b -> Numerical (toNum a - toNum b)) x y)
-  | otherwise = Vectorial []
+  | isStringValue (Vectorial x) && isStringValue (Vectorial y) =
+      fromString (removeSubstring (toString (Vectorial x)) (toString (Vectorial y)))
+  | otherwise = Vectorial (removeSublist x y)
 (-/-) (Numerical x) (Vectorial y) = Vectorial (map (\v -> Numerical (x - toNum v)) y)
 (-/-) (Vectorial x) (Numerical y) = Vectorial (reverse (drop (floor y) (reverse x)))
-(-/-) _ _ = error "Invalid types for subtraction"
+(-/-) (Characterial x) (Vectorial y)
+  | isStringValue (Vectorial y) =
+      fromString (removeSubstring [x] (toString (Vectorial y)))
+  | otherwise = errorWithoutStackTrace "Subtraction for vectors expects two strings."
+
+(-/-) (Vectorial x) (Characterial y)
+  | isStringValue (Vectorial x) =
+      fromString (removeSubstring [y] (toString (Vectorial x)))
+  | otherwise = errorWithoutStackTrace "Subtraction for vectors expects two strings."
+(-/-) _ _ = errorWithoutStackTrace "Invalid types for subtraction"
 
 (*/*) :: Value -> Value -> Value
 (*/*) (Numerical x) (Numerical y) = Numerical (x * y)
@@ -76,7 +90,7 @@ removeSubstring needle haystack
 (*/*) (Vectorial xs) (Numerical n) = Vectorial (map Vectorial (replicate (round n) xs))
 (*/*) (Characterial x) (Numerical y) = Vectorial (replicate (round y) (Characterial x))
 (*/*) (Numerical x) (Characterial y) = Vectorial (replicate (round x) (Characterial y))
-(*/*) _ _ = error "Invalid types for multiplication"
+(*/*) _ _ = errorWithoutStackTrace "Invalid types for multiplication"
 
 (/|\) :: Value -> Value -> Value
 (/|\) (Numerical x) (Numerical y) = Numerical (x / y)
@@ -88,10 +102,11 @@ removeSubstring needle haystack
           ys = take maxLen (cycle y)
       in Vectorial (zipWith (\a b -> Numerical (toNum a / toNum b)) xs ys)
 (/|\) (Numerical x) (Vectorial ys) = Vectorial (map (\v -> Numerical (x / toNum v)) ys)
-(/|\) (Vectorial xs) (Numerical n) = Vectorial (map (\v -> Numerical (toNum v / n)) xs)
-(/|\) (Characterial x) (Numerical y) = Vectorial (replicate (round y) (Characterial x))
-(/|\) (Numerical x) (Characterial y) = Vectorial (replicate (round x) (Characterial y))
-(/|\) _ _ = error "Invalid types for division"
+(/|\) (Vectorial xs) (Numerical n) =
+  let parts = floor n
+      splitted = splitInto xs parts
+  in Vectorial (map Vectorial splitted)
+(/|\) _ _ = errorWithoutStackTrace "Invalid types for division"
 
 (^/^) :: Value -> Value -> Value
 (^/^) (Numerical x) (Numerical y) = Numerical (x ** y)
@@ -106,11 +121,24 @@ removeSubstring needle haystack
 (^/^) (Vectorial xs) (Numerical n) = Vectorial (map (\v -> Numerical (toNum v ** n)) xs)
 (^/^) (Characterial x) (Numerical y) = Vectorial (replicate (round y) (Characterial x))
 (^/^) (Numerical x) (Characterial y) = Vectorial (replicate (round x) (Characterial y))
-(^/^) _ _ = error "Invalid types for exponentiation"
+(^/^) _ _ = errorWithoutStackTrace "Invalid types for exponentiation"
 
 isNumerical :: Value -> Bool
 isNumerical (Numerical _) = True
 isNumerical _             = False
+
+splitInto :: [a] -> Int -> [[a]]
+splitInto xs n
+  | n <= 0    = errorWithoutStackTrace "Cannot divide into less than 1 part"
+  | otherwise = go xs n (length xs)
+  where
+    go [] _ _ = []
+    go ys parts len =
+      let base      = len `div` parts
+          remainder = len `mod` parts
+          currentSize = base + if remainder > 0 then 1 else 0
+          (prefix, suffix) = splitAt currentSize ys
+      in prefix : go suffix (parts - 1) (len - currentSize)
 
 isVector :: Value -> Bool
 isVector (Vectorial _) = True
@@ -120,18 +148,43 @@ minIfVector :: Value -> Value
 minIfVector (Vectorial xs)
   | all isNumerical xs = Numerical (minimum (map toNum xs))
   | all isVector xs    = Vectorial (map minIfVector xs)
-  | otherwise          = error "Min function expects a uniform vector"
+  | otherwise          = errorWithoutStackTrace "Min function expects a uniform vector"
 minIfVector v = v
+
+isStringValue :: Value -> Bool
+isStringValue (Vectorial xs) = all isChar xs
+  where
+    isChar (Characterial _) = True
+    isChar _                = False
+isStringValue _              = False
+
+fromString :: String -> Value
+fromString s = Vectorial (map Characterial s)
+
+toString :: Value -> String
+toString (Vectorial xs) = map (\(Characterial c) -> c) xs
+toString _              = errorWithoutStackTrace "Expected a vector of characters."
+
+removeSublist :: [Value] -> [Value] -> [Value]
+removeSublist needle haystack
+  | null needle = haystack
+  | otherwise   = go haystack
+  where
+    n = length needle
+    go [] = []
+    go lst@(x:xs)
+      | needle == take n lst = drop n lst
+      | otherwise            = x : go xs
 
 maxIfVector :: Value -> Value
 maxIfVector (Vectorial xs) =
   case concatMap extractNumerical xs of
-    []  -> error "Max function expects at least one numerical value"
+    []  -> errorWithoutStackTrace "Max function expects at least one numerical value"
     nums -> Numerical (maximum nums)
   where
     extractNumerical :: Value -> [Double]
     extractNumerical (Numerical n) = [n]
     extractNumerical (Vectorial ys) = concatMap extractNumerical ys
-    extractNumerical _ = error "Max function expects a uniform vector"
+    extractNumerical _ = errorWithoutStackTrace "Max function expects a uniform vector"
 
-maxIfVector _ = error "Max function expects a vector"
+maxIfVector _ = errorWithoutStackTrace "Max function expects a vector"

@@ -44,15 +44,15 @@ parseString = do
     cs  -> return (Arr (map Char cs))
 
 {-
-  ?'
+  ?
 -}
 
 operatorFunc :: Parser String
-operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "_","¢","¬", "°", "§", "@", "#", "%", "&", "$", "£"]
+operatorFunc = choice $ map symbol ["=", "~", "|", "+", "-", "*", "^", "!", "/", "_","¢","¬", "°", "§", "@", "#", "%", "&", "$", "£", "\'"]
 
 parseBuiltinFunction :: Parser Expression
 parseBuiltinFunction = do
-  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "_","¢", "¬", "°", "§", "$", "£"]
+  op <- choice $ map symbol ["=", "~", "+", "-", "*", "^", "!", "/", "|", "_","¢", "¬", "°", "§", "$", "£", "\'"]
   numOpt <- optional (lexeme L.scientific)
   case numOpt of
     Nothing -> return (Fun op)
@@ -121,8 +121,8 @@ parseFunction = do
     "=" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Eq e1 e2) }
     "~" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Neq e1 e2) }
     "|" -> do { e <- parseExpr; return (Range e) }
-    "\"" -> do { e <- parseExpr; return (Max e) }
-    "'" -> do { e <- parseExpr; return (Min e) }
+    "¢" -> do { e <- parseExpr; return (Max e) }
+    "_" -> do { e <- parseExpr; return (Min e) }
     "+" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Sum e1 e2) }
     "-" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Sub e1 e2) }
     "*" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Mul e1 e2) }
@@ -138,6 +138,7 @@ parseFunction = do
     "&" -> do { e1 <- parseExpr; e2 <- parseExpr; return (Match e1 e2) }
     "$" -> do { e <- parseExpr; return (Nub e) }
     "£" -> do { e <- parseExpr; return (Len e) }
+    "\'"-> do { e <- parseExpr; return (Flat e) }
     _   -> fail ("Unknown function operator: " ++ op)
 
 parseNegative :: Parser Expression

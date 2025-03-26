@@ -31,5 +31,6 @@ module Parser.Ast where
         | Mod Expression Expression
         | Nub Expression
         | Len Expression
+        | Flat Expression
 
         deriving (Show, Eq)

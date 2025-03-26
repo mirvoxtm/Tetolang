@@ -9,6 +9,7 @@ import Data.Fixed (mod')
 import Data.List
 import Data.Char
 import Data.Maybe (fromMaybe)
+import qualified GHC.Err as Err
 
 eval :: Expression -> Value
 eval (Num n) = Numerical n
@@ -37,18 +38,18 @@ eval (Exp e1 e2) = (eval e1) ^/^ (eval e2)
 
 eval (Nub e) = case eval e of
     Vectorial xs -> Vectorial (nub xs)
-    _ -> error "Nub expects a vector"
+    _ -> errorWithoutStackTrace "Nub expects a vector"
 
 eval (Len e) = case eval e of
     Vectorial xs -> Numerical (fromIntegral (length xs))
-    _ -> error "Len expects a vector"
+    _ -> errorWithoutStackTrace "Len expects a vector"
 
 eval (Mod e1 e2) =
     case (eval e1, eval e2) of
         (Numerical x, Numerical y) ->
-            if y == 0 then error "Modulo by zero"
+            if y == 0 then errorWithoutStackTrace "Modulo by zero"
             else Numerical (mod' x y)
-        _ -> error "Modulo expects two numbers"
+        _ -> errorWithoutStackTrace "Modulo expects two numbers"
 
 eval (Fact e)    = applyUnary (\v -> case v of
     Numerical n  -> Numerical (product [1..n])
@@ -65,17 +66,17 @@ eval (Range e) =
     case eval e of
         Numerical n -> Vectorial (map (Numerical . fromIntegral) [1 .. floor n])
         Vectorial xs -> Numerical (fromIntegral (length xs))
-        _ -> error "Range function expects a numerical expression"
+        _ -> errorWithoutStackTrace "Range function expects a numerical expression"
 
 eval (Max e) = case eval e of
     Vectorial xs -> Numerical (maximum (map toNum xs))
     Numerical n  -> Numerical n
-    _            -> error "Max expects a vector or number"
+    _            -> errorWithoutStackTrace "Max expects a vector or number"
 
 eval (Min e) = case eval e of
     Vectorial xs -> Numerical (minimum (map toNum xs))
     Numerical n  -> Numerical n
-    _            -> error "Min expects a vector or number"
+    _            -> errorWithoutStackTrace "Min expects a vector or number"
 
 eval (Reduce fExpr arrExpr) = reduceFunc fExpr arrExpr
 
@@ -90,12 +91,12 @@ eval (PartialNeq e) =
 eval (Filter fExpr arrExpr) =
     case (eval fExpr, eval arrExpr) of
         (Function 1 f, Vectorial xs) -> Vectorial (filter (toBool . f . return) xs)
-        _ -> error "Filter expects a function and a vector"
+        _ -> errorWithoutStackTrace "Filter expects a function and a vector"
 
 eval (Reverse e) =
     case eval e of
         Vectorial xs -> Vectorial (reverse xs)
-        _ -> error "Reverse function expects a vector"
+        _ -> errorWithoutStackTrace "Reverse function expects a vector"
 
 eval (Rotate e1 e2) =
     case (eval e1, eval e2) of
@@ -107,19 +108,19 @@ eval (Rotate e1 e2) =
             let len = length xs
                 shift = round n `mod` len
             in Vectorial (drop shift xs ++ take shift xs)
-        _ -> error "Rotate expects a number and a vector"
+        _ -> errorWithoutStackTrace "Rotate expects a number and a vector"
 
 eval (Index e1 e2) =
     case (eval e1, eval e2) of
         (Numerical n, Vectorial xs) ->
             if round n <= 0 || round n > length xs
-                then error "Index out of bounds"
+                then errorWithoutStackTrace "Index out of bounds"
                 else xs !! (round n - 1)
         (Vectorial xs, Numerical n) ->
             if round n <= 0 || round n > length xs
-                then error "Index out of bounds"
+                then errorWithoutStackTrace "Index out of bounds"
                 else xs !! (round n - 1)
-        _ -> error "Index expects a number and a vector"
+        _ -> errorWithoutStackTrace "Index expects a number and a vector"
         
 eval (Match e1 e2) =
     case (eval e1, eval e2) of
@@ -145,9 +146,17 @@ eval (Match e1 e2) =
             Vectorial (map (\x -> if toChar x == c then Booleanical True else Booleanical False) xs)
         (Vectorial xs, Vectorial ys) ->
             if length xs /= length ys
-                then error "Match expects vectors of the same length."
+                then errorWithoutStackTrace "Match expects vectors of the same length."
                 else Vectorial (zipWith (\x y -> if eqValue x y then Booleanical True else Booleanical False) xs ys)
-        _ -> error "Invalid types for Match."
+        _ -> errorWithoutStackTrace "Invalid types for Match."
+
+eval (Flat e) =
+    case eval e of
+        Vectorial xs -> Vectorial (concatMap (\v -> case v of
+            Vectorial ys -> ys
+            _            -> [v]
+            ) xs)
+        _ -> errorWithoutStackTrace "Flat expects a vector"
 
 eval (Fun op) =
     fromMaybe (parseCustomFun op) (lookup op funTable)
@@ -167,22 +176,22 @@ eval (Fun op) =
       , ("!", Function 1 (\[x] -> applyUnary (\v -> case v of
             Numerical n  -> Numerical (product [1..n])
             Vectorial xs -> Vectorial (map (\(Numerical n) -> Numerical (product [1..n])) xs)
-            _            -> error "Factorial expects a numerical or vectorial value."
+            _            -> errorWithoutStackTrace "Factorial expects a numerical or vectorial value."
         ) x))
       , ("¬", Function 1 (\[x] -> applyUnary negValue x))
       , ("§", Function 1 (\[x] -> applyUnary (\v -> case v of
               Vectorial xs -> Vectorial (reverse xs)
-              _            -> error "Reverse function expects a vectorial value."
+              _            -> errorWithoutStackTrace "Reverse function expects a vectorial value."
         ) x))
       ]
 
 toBool :: Value -> Bool
 toBool (Booleanical b) = b
-toBool _               = error "Expected a vector of boolean values."
+toBool _               = errorWithoutStackTrace "Expected a vector of boolean values."
 
 toChar :: Value -> Char
 toChar (Characterial c) = c
-toChar _                = error "Expected a character value."
+toChar _                = errorWithoutStackTrace "Expected a character value."
 
 parseCustomFun :: String -> Value
 parseCustomFun op
@@ -191,16 +200,16 @@ parseCustomFun op
         in case head op of
               '+' -> case readMaybe rest :: Maybe Double of
                          Just n  -> Function 1 (\[x] -> Numerical (toNum x + n))
-                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+                         Nothing -> errorWithoutStackTrace ("Invalid numeric constant: " ++ rest)
               '-' -> case readMaybe rest :: Maybe Double of
                          Just n  -> Function 1 (\[x] -> Numerical (toNum x - n))
-                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+                         Nothing -> errorWithoutStackTrace ("Invalid numeric constant: " ++ rest)
               '*' -> case readMaybe rest :: Maybe Double of
                          Just n  -> Function 1 (\[x] -> Numerical (toNum x * n))
-                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+                         Nothing -> errorWithoutStackTrace ("Invalid numeric constant: " ++ rest)
               '/' -> case readMaybe rest :: Maybe Double of
                          Just n  -> Function 1 (\[x] -> Numerical (toNum x / n))
-                         Nothing -> error ("Invalid numeric constant: " ++ rest)
+                         Nothing -> errorWithoutStackTrace ("Invalid numeric constant: " ++ rest)
               '=' -> case readMaybe rest :: Maybe Double of
                          Just n  -> Function 1 (\[x] -> if toNum x == n then Booleanical True else Booleanical False)
                          Nothing -> Function 1 (\[x] ->
@@ -213,8 +222,8 @@ parseCustomFun op
                                     if eqValue x (stringVal rest)
                                       then Booleanical False
                                       else Booleanical True)
-              _   -> error ("Invalid operator: " ++ op)
-    | otherwise = error ("Unknown function operator: " ++ op)
+              _   -> errorWithoutStackTrace ("Invalid operator: " ++ op)
+    | otherwise = errorWithoutStackTrace ("Unknown function operator: " ++ op)
 
 stringVal :: String -> Value
 stringVal s = Vectorial (map Characterial s)
@@ -231,25 +240,25 @@ eqValue _ _                             = False
 extractNums :: Value -> [Double]
 extractNums (Numerical n)  = [n]  -- Wrap single numbers in a list
 extractNums (Vectorial xs) = concatMap extractNums xs
-extractNums _              = error "Expected a numerical vector"
+extractNums _              = errorWithoutStackTrace "Expected a numerical vector"
 
 reduceFunc :: Expression -> Expression -> Value
 reduceFunc fExpr arrExpr =
     case eval fExpr of
         Function 2 f -> case eval arrExpr of
             Vectorial xs -> Numerical (foldl (\acc x -> toNum (f [Numerical acc, x])) 0 xs)
-            _ -> error "Reduce expects a vector as its second argument"
-        _ -> error "Reduce expects a binary function"
+            _ -> errorWithoutStackTrace "Reduce expects a vector as its second argument"
+        _ -> errorWithoutStackTrace "Reduce expects a binary function"
 
 mapFunc :: Expression -> Expression -> Value
 mapFunc fExpr arrExpr = case eval fExpr of
     Function 1 f -> case eval arrExpr of
         Vectorial xs -> Vectorial (map (f . return) xs)
-        _ -> error "Map expects a vector as its second argument"
+        _ -> errorWithoutStackTrace "Map expects a vector as its second argument"
     Function 2 f -> case eval arrExpr of
         Vectorial xs -> Vectorial (map (\x -> f [x]) xs)
-        _ -> error "Map expects a vector as its second argument"
-    _ -> error "Map expects a function as its first argument"
+        _ -> errorWithoutStackTrace "Map expects a vector as its second argument"
+    _ -> errorWithoutStackTrace "Map expects a function as its first argument"
 
 negValue :: Value -> Value
 negValue (Numerical n) = Numerical (-n)
@@ -258,7 +267,7 @@ negValue (Booleanical b) = Booleanical (not b)
 
 safeDiv :: Double -> Double -> Double
 safeDiv x y
-    | y == 0 = error "Division by zero"
+    | y == 0 = errorWithoutStackTrace "Division by zero"
     | otherwise = x / y
 
 rangeFunc :: Double -> Value

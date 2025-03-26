@@ -52,10 +52,12 @@ runImmediate input =
                 Right v  -> print v
 
 interactiveLoop :: IO ()
-interactiveLoop =
-    putStrLn "(--         Welcome to Teto         --)" >>
-    putStrLn "(--  Press Ctrl-C to exit the REPL  --)" >>
-    forever (do
+interactiveLoop = do
+    putStrLn "(--         Welcome to Teto         --)"
+    putStrLn "(--  Press Ctrl-C to exit the REPL  --)"
+    loop
+  where
+    loop = do
         putStr "teto> "
         input <- getLine
         case parse (sc *> parseExpr <* eof) "" input of
@@ -65,5 +67,5 @@ interactiveLoop =
                 result <- try (evaluate (val `deepseq` val)) :: IO (Either SomeException Value)
                 case result of
                     Left ex  -> putStrLn ("Error: " ++ show ex)
-                    Right v  -> print v
-        )
+                    Right v  -> putStrLn (show v)
+        loop
