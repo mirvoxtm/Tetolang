@@ -7,7 +7,8 @@
 
 <img src="teto_logo_texto.png" width="20%">
 
-Teto is a APL Inspired programming language with a prefix syntax and symbols that fit on your keyboard. The following is an example of Teto's syntax
+Teto is a APL Inspired programming language with a prefix syntax and symbols that fit on your keyboard.
+Teto has support for Doubles, Arrays and Chars. (A String is just an Array of Characters).
 
 [Click here to try Teto online ](https://teto.mirvox.xyz/).
   
@@ -62,13 +63,13 @@ Teto has the following functions mapped to special characters, depending on the 
 Creates a list withing a range. 
 `(|5) -> [1.0,2.0,3.0,4.0,5.0]`
 
-###  Maximum ( " )
+###  Maximum ( ¢ )
 Gets the maximum element of a list.
-`("[3,5,7,3,1]) -> 7.0`
+`(¢[3,5,7,3,1]) -> 7.0`
 
-###  Minimum ( " )
+###  Minimum ( _ )
 Gets the maximum element of a list.
-`('[3,5,7,3,1]) -> 1.0`
+`(_[3,5,7,3,1]) -> 1.0`
 
 ###  Factorial ( ! )
 Gets the factorial of a number.
@@ -101,6 +102,10 @@ Gets an Element from a passed index.
 ###  Match ( & )
 Gets the index of the first element that matches an expression.
 `&  3 [5,4,3,2,1] -> 3.0`
+
+###  Flat ( ' )
+Flattens an array.
+`& [[1,2],[3,4]] -> [1,2,3,4]`
 
 ___
 Teto is still a work in progress and it's just a hobbie project made for fun. The quality of the interpreter's code is pretty bad, but if you are interested in helping, feel free to do so!
